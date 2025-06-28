@@ -1,0 +1,87 @@
+---
+- name: Deploy Minecraft Forge Server on EC2
+  hosts: minecraft_server
+  become: yes  # Executar tarefas como root (necessário para instalar pacotes)
+  vars:
+    project_dir: "/home/ubuntu/minecraft-forge-docker"
+    user: "ubuntu"
+
+  tasks:
+    - name: 1. System Setup - Update APT cache and install prerequisites
+      ansible.builtin.apt:
+        name:
+          - git
+          - docker.io
+          - docker-compose-v2
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: 1. System Setup - Install Docker SDK for Python
+      ansible.builtin.pip:
+        name: 
+          - docker
+          - docker-compose
+        state: present
+
+    - name: 1. System Setup - Ensure Docker service is running and enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: 1. System Setup - Add ubuntu user to the docker group
+      ansible.builtin.user:
+        name: "{{ user }}"
+        groups: docker
+        append: yes
+
+    - name: 2. Application Deploy - Clone the Minecraft Forge repository
+      ansible.builtin.git:
+        repo: 'https://github.com/Zagari/minecraft-forge-docker'
+        dest: "{{ project_dir }}"
+        clone: yes
+        update: yes
+      become_user: "{{ user }}" # Executar como o usuário 'ubuntu'
+
+    - name: 2. Application Deploy - Create eula.txt file
+      ansible.builtin.copy:
+        content: "eula=true"
+        dest: "{{ project_dir }}/eula.txt"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0644'
+
+    - name: 2. Application Deploy - Download mods archive from Dropbox
+      ansible.builtin.get_url:
+        url: "https://www.dropbox.com/scl/fi/o4w0y1l8riodndv8cmn1c/mods.tgz?rlkey=yiy8hxsoe7abjg31zymek0snn&dl=1" # &dl=1 força o download direto
+        dest: "/tmp/mods.tgz"
+        mode: '0644'
+
+    - name: 2. Application Deploy - Unarchive mods
+      ansible.builtin.unarchive:
+        src: "/tmp/mods.tgz"
+        dest: "{{ project_dir }}"
+        remote_src: yes # Indica que o arquivo está na máquina remota
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: 2. Application Deploy - Download world archive from Dropbox
+      ansible.builtin.get_url:
+        url: "https://www.dropbox.com/scl/fi/w6mly1zwv4vqs1jsboyg4/world.tgz?rlkey=qtpyn8rklqqrxcnnw2x2s3fgd&dl=1" # &dl=1 força o download direto
+        dest: "/tmp/world.tgz"
+        mode: '0644'
+
+    - name: 2. Application Deploy - Unarchive world
+      ansible.builtin.unarchive:
+        src: "/tmp/world.tgz"
+        dest: "{{ project_dir }}"
+        remote_src: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
+
+    - name: 3. Run Application - Build and run docker-compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present  # Garante que os containers estão de pé (faz build, create, start)
+        pull: always    # Garante que a imagem base está atualizada

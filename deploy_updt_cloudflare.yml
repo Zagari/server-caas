@@ -1,0 +1,44 @@
+---
+- name: Deploy Cloudflare Updater Service
+  hosts: minecraft_server
+  become: yes
+  vars:
+    project_dir: "/home/ubuntu/cloudflare-updater"
+    user: "ubuntu"
+  
+  # Carrega as variáveis do arquivo criptografado
+  vars_files:
+    - secrets.yml
+
+  tasks:
+    # Estas tarefas são idempotentes. Se Docker e Git já estiverem instalados, 
+    # o Ansible simplesmente confirmará que está tudo OK sem fazer nada.
+    - name: 1. System Setup - Ensure prerequisites are installed
+      ansible.builtin.apt:
+        name:
+          - git
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: yes
+
+    - name: 2. Application Deploy - Clone the Cloudflare Updater repository
+      ansible.builtin.git:
+        repo: 'https://github.com/Zagari/cloudflare-updater.git'
+        dest: "{{ project_dir }}"
+        clone: yes
+        update: yes
+      become_user: "{{ user }}"
+
+    - name: 3. Application Config - Create .env file from template
+      ansible.builtin.template:
+        src: .env.j2  # Nosso arquivo de template local
+        dest: "{{ project_dir }}/updt-service/.env" # Caminho de destino no servidor
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0600'  # Permissões restritas, pois o arquivo contém segredos
+
+    - name: 4. Run Application - Build and run docker-compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present  # Garante que os containers estão de pé (faz build, create, start -d)
