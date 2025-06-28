@@ -1,0 +1,55 @@
+---
+- name: Backup Minecraft World to Dropbox
+  hosts: minecraft_server
+  become: yes
+  vars:
+    minecraft_dir: "/home/ubuntu/minecraft-forge-docker"
+    backup_filename: "world-backup-{{ ansible_date_time.iso8601 }}.tgz"
+    rclone_config_path: "/home/ubuntu/.config/rclone"
+    user: "ubuntu"
+
+  vars_files:
+    - secrets.yml
+
+  tasks:
+    - name: 1. Ensure rclone is installed
+      ansible.builtin.apt:
+        name: rclone
+        state: present
+
+    - name: 2. Create rclone config directory
+      ansible.builtin.file:
+        path: "{{ rclone_config_path }}"
+        state: directory
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0755'
+
+    - name: 3. Deploy rclone config from Vault
+      ansible.builtin.copy:
+        content: "{{ RCLONE_CONF_CONTENT }}"
+        dest: "{{ rclone_config_path }}/rclone.conf"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: '0600' # Arquivo com segredos, permissões restritas
+
+    - name: 4. Compress the 'world' directory
+      community.general.archive:
+        path: "{{ minecraft_dir }}/world"
+        dest: "/tmp/{{ backup_filename }}"
+        format: gztar
+        owner: "{{ user }}"
+        group: "{{ user }}"
+      become: no # Executar como usuário ubuntu para ter permissão na pasta
+
+    - name: 5. Upload backup to Dropbox
+      ansible.builtin.command:
+        # O comando `copyto` sobrescreve o arquivo de destino.
+        # 'dropbox' é o nome do remote que você configurou no rclone.conf.
+        cmd: "rclone copyto /tmp/{{ backup_filename }} dropbox:minecraft-backups/world.tgz"
+      become_user: "{{ user }}"
+
+    - name: 6. Clean up temporary backup file
+      ansible.builtin.file:
+        path: "/tmp/{{ backup_filename }}"
+        state: absent

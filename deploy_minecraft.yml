@@ -54,7 +54,7 @@
 
     - name: 2. Application Deploy - Download mods archive from Dropbox
       ansible.builtin.get_url:
-        url: "https://www.dropbox.com/scl/fi/o4w0y1l8riodndv8cmn1c/mods.tgz?rlkey=yiy8hxsoe7abjg31zymek0snn&dl=1" # &dl=1 força o download direto
+        url: "https://www.dropbox.com/scl/fi/ldhjpsjqxbchj3wqghu7v/mods.tgz?rlkey=gvtlab3udol358u7c5qusjk7c&st=6ibppay3&dl=1" # &dl=1 força o download direto
         dest: "/tmp/mods.tgz"
         mode: '0644'
 

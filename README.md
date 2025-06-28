@@ -48,7 +48,10 @@ CLOUDFLARE_RECORD_NAME: "subdomain.example.com"
 MINECRAFT_RECORD_ID: "a_second_record_id_here"
 ```
 
-Salve e feche o editor. Para editar este arquivo no futuro, use o comando `ansible-vault edit secrets.yml`.
+Salve e feche o editor. Para editar este arquivo no futuro, use o comando 
+```bash
+ansible-vault edit secrets.yml`.
+```
 
 c. **Crie o arquivo de template `.env.j2`**
 Este arquivo serve como um modelo para o arquivo `.env` que será criado no servidor. Crie o arquivo `.env.j2` com o seguinte conteúdo:
@@ -104,6 +107,45 @@ ansible-playbook -i inventory.ini deploy_minecraft.yml
 
 Pronto! Ao final desses passos, sua instância EC2 estará no ar com ambos os serviços rodando em containers Docker.
 
+---
+
+### 3. Passo a Passo para Backup do Estado do Minecraft
+
+O playbook se conecta à instância, compacta a pasta world/ e usa a ferramenta de linha de comando rclone para fazer o upload para o Dropbox. 
+
+Passos para Implementação:
+
+#### Passo 1: Instale e Configure o rclone no seu computador local para gerar um token de acesso do Dropbox de forma interativa.
+
+a. Instale o rclone (ex: sudo apt install rclone ou via download).
+b. Execute rclone config. Siga os passos para criar um novo "remote" do tipo Dropbox. Isso abrirá seu navegador para autorizar o acesso e, no final, salvará um token no arquivo ~/.config/rclone/rclone.conf. O "client_id" e o "client_secret" podem ser obtidos em https://www.dropbox.com/developers/apps
+	•	Crie um app com tipo Scoped Access.
+	•	Pegue o App key (Client ID) e App secret.
+Você precisará do conteúdo deste arquivo de configuração para o Ansible.
+
+#### Passo 2: Guarde o conteúdo de rclone.conf no Ansible Vault, para que seu token não fique exposto.
+
+a. Abra seu arquivo secrets.yml com ansible-vault edit secrets.yml.
+b. Adicione uma nova variável com o conteúdo do arquivo de configuração:
+
+```bash
+# ... outras variáveis secretas ...
+RCLONE_CONF_CONTENT: |
+  [dropbox]
+  type = dropbox
+  token = {"access_token":"SEU_ACCESS_TOKEN_GERADO","token_type":"bearer","refresh_token":"SEU_REFRESH_TOKEN","expiry":"2023-10-27T15:00:00.123456Z"}
+```
+
+#### Passo 3: Novo Fluxo de Trabalho:
+
+a. Para destruir: 
+```bash
+ansible-playbook -i inventory.ini backup_minecraft.yml --ask-vault-pass
+````
+b. Depois: 
+```bash
+terraform destroy -auto-approve
+```
 ---
 
 ## Explicação Detalhada dos Playbooks

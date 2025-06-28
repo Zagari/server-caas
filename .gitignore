@@ -1,0 +1,21 @@
+# Arquivos de configuração específicos do ambiente Ansible
+inventory.ini
+*.retry
+
+# Arquivos de ambiente e de segredos
+.env
+secrets.yml
+
+# Arquivos de Imagens Docker salvas
+*.tar
+
+# Diretório do ambiente virtual Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos específicos do sistema operacional
+.DS_Store
+Thumbs.db
