@@ -118,20 +118,27 @@ Passos para Implementação:
 #### Passo 1: Instale e Configure o rclone no seu computador local para gerar um token de acesso do Dropbox de forma interativa.
 
 a. Instale o rclone (ex: sudo apt install rclone ou via download).
+
 b. Execute rclone config. Siga os passos para criar um novo "remote" do tipo Dropbox. Isso abrirá seu navegador para autorizar o acesso e, no final, salvará um token no arquivo ~/.config/rclone/rclone.conf. O "client_id" e o "client_secret" podem ser obtidos em https://www.dropbox.com/developers/apps
+
 	•	Crie um app com tipo Scoped Access.
 	•	Pegue o App key (Client ID) e App secret.
+
 Você precisará do conteúdo deste arquivo de configuração para o Ansible.
 
 #### Passo 2: Guarde o conteúdo de rclone.conf no Ansible Vault, para que seu token não fique exposto.
 
-a. Abra seu arquivo secrets.yml com ansible-vault edit secrets.yml.
+a. Abra seu arquivo secrets.yml com 
+```bash
+ansible-vault edit secrets.yml
+```
+
 b. Adicione uma nova variável com o conteúdo do arquivo de configuração:
 
 ```bash
 # ... outras variáveis secretas ...
 RCLONE_CONF_CONTENT: |
-  [dropbox]
+  [dropbox-remote-minecraft] # Nome do 
   type = dropbox
   token = {"access_token":"SEU_ACCESS_TOKEN_GERADO","token_type":"bearer","refresh_token":"SEU_REFRESH_TOKEN","expiry":"2023-10-27T15:00:00.123456Z"}
 ```

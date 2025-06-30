@@ -3,8 +3,16 @@
   hosts: minecraft_server
   become: yes
   vars:
-    minecraft_dir: "/home/ubuntu/minecraft-forge-docker"
-    backup_filename: "world-backup-{{ ansible_date_time.iso8601 }}.tgz"
+    # Dropbox remote name configured in rclone.conf
+    dropbox_remote: "dropbox-remote-minecraft"  # Nome do remote configurado no rclone.conf
+    # No container:
+    container_name: "forge-server" 
+    container_world_path: "/minecraft"
+    container_backup_file: "/minecraft/world.tgz"
+    # No host (onde o container está rodando):
+    #minecraft_dir: "/home/ubuntu/minecraft-forge-docker"
+    host_backup_file: "/tmp/world-backup-{{ ansible_date_time.iso8601 }}.tgz"
+    #backup_filename: "world-backup-{{ ansible_date_time.iso8601 }}.tgz"
     rclone_config_path: "/home/ubuntu/.config/rclone"
     user: "ubuntu"
 
@@ -17,7 +25,7 @@
         name: rclone
         state: present
 
-    - name: 2. Create rclone config directory
+    - name: 2. Create rclone config directory on host
       ansible.builtin.file:
         path: "{{ rclone_config_path }}"
         state: directory
@@ -25,7 +33,7 @@
         group: "{{ user }}"
         mode: '0755'
 
-    - name: 3. Deploy rclone config from Vault
+    - name: 3. Deploy rclone config from Vault to host
       ansible.builtin.copy:
         content: "{{ RCLONE_CONF_CONTENT }}"
         dest: "{{ rclone_config_path }}/rclone.conf"
@@ -33,23 +41,33 @@
         group: "{{ user }}"
         mode: '0600' # Arquivo com segredos, permissões restritas
 
-    - name: 4. Compress the 'world' directory
-      community.general.archive:
-        path: "{{ minecraft_dir }}/world"
-        dest: "/tmp/{{ backup_filename }}"
-        format: gztar
-        owner: "{{ user }}"
-        group: "{{ user }}"
-      become: no # Executar como usuário ubuntu para ter permissão na pasta
-
-    - name: 5. Upload backup to Dropbox
+    - name: 4. Compress the 'world' directory INSIDE the container
       ansible.builtin.command:
-        # O comando `copyto` sobrescreve o arquivo de destino.
-        # 'dropbox' é o nome do remote que você configurou no rclone.conf.
-        cmd: "rclone copyto /tmp/{{ backup_filename }} dropbox:minecraft-backups/world.tgz"
+        # Executa 'tar' dentro do container. O -C muda o diretório antes de compactar.
+        cmd: "docker exec {{ container_name }} tar -czvf {{ container_backup_file }} -C {{ container_world_path }} world"
+      become_user: "{{ user }}" # Executa como 'ubuntu', que está no grupo docker
+
+    - name: 5. Copy backup file FROM container TO host
+      ansible.builtin.command:
+        # Copia o arquivo gerado de dentro do container para o /tmp do host
+        cmd: "docker cp {{ container_name }}:{{ container_backup_file }} {{ host_backup_file }}"
       become_user: "{{ user }}"
 
-    - name: 6. Clean up temporary backup file
+    - name: 6. (Optional) Clean up backup file inside container
+      ansible.builtin.command:
+        # Remove o .tgz de dentro do container para não deixar lixo.
+        cmd: "docker exec {{ container_name }} rm {{ container_backup_file }}"
+      become_user: "{{ user }}"
+      ignore_errors: yes # Ignora erros caso o arquivo não exista por algum motivo
+
+    - name: 7. Upload backup to Dropbox from host
+      ansible.builtin.command:
+        # O comando `copyto` sobrescreve o arquivo de destino.
+        # 'dropbox_remote' é o nome do remote que você configurou no rclone.conf.
+        cmd: "rclone copyto {{ host_backup_file }} {{ dropbox_remote }}:world.tgz"
+      become_user: "{{ user }}"
+
+    - name: 8. Clean up temporary backup file
       ansible.builtin.file:
-        path: "/tmp/{{ backup_filename }}"
+        path: "{{ host_backup_file }}"
         state: absent
