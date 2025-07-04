@@ -1,6 +1,6 @@
 ---
 - name: Backup Minecraft World to Dropbox
-  hosts: minecraft_server
+  hosts: castellabate_server
   become: yes
   vars:
     # Dropbox remote name configured in rclone.conf
@@ -12,7 +12,6 @@
     # No host (onde o container está rodando):
     #minecraft_dir: "/home/ubuntu/minecraft-forge-docker"
     host_backup_file: "/tmp/world-backup-{{ ansible_date_time.iso8601 }}.tgz"
-    #backup_filename: "world-backup-{{ ansible_date_time.iso8601 }}.tgz"
     rclone_config_path: "/home/ubuntu/.config/rclone"
     user: "ubuntu"
 
@@ -24,6 +23,7 @@
       ansible.builtin.apt:
         name: rclone
         state: present
+        update_cache: yes
 
     - name: 2. Create rclone config directory on host
       ansible.builtin.file:

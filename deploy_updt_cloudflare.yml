@@ -1,6 +1,6 @@
 ---
 - name: Deploy Cloudflare Updater Service
-  hosts: minecraft_server
+  hosts: castellabate_server
   become: yes
   vars:
     project_dir: "/home/ubuntu/cloudflare-updater"
@@ -13,14 +13,22 @@
   tasks:
     # Estas tarefas são idempotentes. Se Docker e Git já estiverem instalados, 
     # o Ansible simplesmente confirmará que está tudo OK sem fazer nada.
-    - name: 1. System Setup - Ensure prerequisites are installed
+    - name: 1. System Setup - Verify that essential dependencies are installed
       ansible.builtin.apt:
         name:
           - git
-          - docker.io
-          - docker-compose-v2
+          - docker-ce
+          - docker-compose-plugin
+          - ca-certificates
+          - curl
+          - gnupg
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: yes      # É bom ter, caso algo precise ser instalado.  
 
     - name: 2. Application Deploy - Clone the Cloudflare Updater repository
       ansible.builtin.git:
