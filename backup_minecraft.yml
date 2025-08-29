@@ -64,7 +64,7 @@
       ansible.builtin.command:
         # O comando `copyto` sobrescreve o arquivo de destino.
         # 'dropbox_remote' é o nome do remote que você configurou no rclone.conf.
-        cmd: "rclone copyto {{ host_backup_file }} {{ dropbox_remote }}:world.tgz"
+        cmd: "rclone copyto {{ host_backup_file }} {{ dropbox_remote }}:/Apps/Zagari-Public-Drop/world.tgz"
       become_user: "{{ user }}"
 
     - name: 8. Clean up temporary backup file
